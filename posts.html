@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HN YouTube – Posts (2015–2025)</title>
+  <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/nouislider@15/dist/nouislider.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/nouislider@15/dist/nouislider.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f6f6ef; color: #333; padding: 2rem 1rem; }
+    h1 { font-size: 1.4rem; font-weight: 700; color: #ff6600; margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.85rem; color: #828282; margin-bottom: 1rem; }
+    nav { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
+    .nav-link { padding: 0.35rem 0.9rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; color: #555; text-decoration: none; }
+    .nav-link.active { background: #ff6600; border-color: #ff6600; color: white; font-weight: 600; }
+    .controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.25rem; }
+    #search { padding: 0.4rem 0.75rem; font-size: 0.9rem; border: 1px solid #ddd; border-radius: 4px; width: 260px; }
+    .filter-group { display: flex; align-items: center; gap: 0.6rem; font-size: 0.8rem; color: #828282; }
+    .filter-group label { white-space: nowrap; }
+    .filter-val { font-size: 0.78rem; color: #555; min-width: 9rem; }
+    .slider-wrap { width: 160px; margin: 0 0.75rem; }
+    .noUi-connect { background: #ff6600; }
+    .noUi-handle { border-color: #ff6600; }
+    .noUi-handle:after, .noUi-handle:before { background: #ff6600; }
+    .buckets { display: flex; gap: 0.25rem; }
+    .bucket { padding: 0.25rem 0.6rem; font-size: 0.78rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; color: #555; }
+    .bucket.active { background: #ff6600; border-color: #ff6600; color: white; }
+    .tabulator { border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.875rem; }
+    .tabulator .tabulator-header { background: #f6f6ef; border-bottom: 1px solid #e0e0e0; }
+    .tabulator .tabulator-col-title { font-weight: 600; }
+    .tabulator-row { border-bottom: 1px solid #f0f0f0; }
+    .tabulator-row:hover { background: #fffaf5 !important; }
+    .title-cell a { color: #222; text-decoration: none; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+    .title-cell a:hover { color: #ff6600; }
+    .title-cell .channel { font-size: 0.75rem; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hn-links a { color: #828282; font-size: 0.75rem; text-decoration: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hn-links a:hover { text-decoration: underline; }
+    .members-badge { font-size: 0.7rem; background: #eee; border: 1px solid #ddd; border-radius: 3px; padding: 0 4px; color: #888; vertical-align: middle; }
+    .search-wrap { position: relative; }
+    #autocomplete { display: none; position: absolute; top: calc(100% + 4px); left: 0; width: 360px; background: white; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 100; overflow: hidden; }
+    .ac-section-header { padding: 0.35rem 0.75rem; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #aaa; background: #fafafa; border-bottom: 1px solid #f0f0f0; }
+    .ac-item { padding: 0.4rem 0.75rem; font-size: 0.85rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333; }
+    .ac-item:hover, .ac-item.focused { background: #fff5ee; color: #ff6600; }
+    .ac-empty { padding: 0.4rem 0.75rem; font-size: 0.82rem; color: #bbb; font-style: italic; }
+  </style>
+</head>
+<body>
+  <h1>HN YouTube (2015–2025)</h1>
+  <p class="subtitle">Videos directly posted to HN by accounts created before 2022 with 1000+ karma. Ranked by views ÷ posts — lowest = most obscure per submission.</p>
+  <nav>
+    <a class="nav-link" href="index.html">Comments</a>
+    <a class="nav-link active" href="posts.html">Posts</a>
+  </nav>
+  <div class="controls">
+    <div class="search-wrap">
+      <input id="search" type="text" placeholder="Search titles, channels..." autocomplete="off">
+      <div id="autocomplete"></div>
+    </div>
+    <div class="filter-group">
+      <label>Views:</label>
+      <div class="slider-wrap" id="views-slider"></div>
+      <span class="filter-val" id="views-val">Any</span>
+    </div>
+    <div class="filter-group">
+      <label>Min posts:</label>
+      <div class="slider-wrap" id="count-slider"></div>
+      <span class="filter-val" id="count-val">Any</span>
+    </div>
+    <div class="filter-group">
+      <div class="buckets" id="members-buckets">
+        <button class="bucket active" data-members="any">All</button>
+        <button class="bucket" data-members="hide">Hide restricted</button>
+        <button class="bucket" data-members="only">Restricted only</button>
+      </div>
+    </div>
+  </div>
+  <div id="table"></div>
+
+  <script>
+    const DATA_URL = './posts.json';
+    const COUNT_FIELD = 'hnPosts';
+    const COUNT_LABEL = 'Posts';
+    const RATIO_LABEL = 'Views/Post';
+    const MAX_COUNT = 18;
+
+    const VIEW_STEPS = [0, 1000, 10000, 100000, 500000, 1000000, 10000000, 1000000000, Infinity];
+
+    function fmtNum(v) {
+      if (v == null) return '—';
+      if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+      return String(v);
+    }
+
+    function fmtStep(i) {
+      return VIEW_STEPS[i] === Infinity ? '∞' : fmtNum(VIEW_STEPS[i]);
+    }
+
+    function titleFormatter(cell) {
+      const row = cell.getRow().getData();
+      const mo = row.views === 0 ? ' <span class="members-badge">restricted</span>' : '';
+      return `<div class="title-cell"><a href="video.html?v=${row.videoId}">${row.title ?? row.videoId}</a>${mo}<div class="channel">${row.channel ?? ''}</div></div>`;
+    }
+
+    function threadsFormatter(cell) {
+      const row = cell.getRow().getData();
+      return `<div class="hn-links">${row.storyIds.map((id, j) =>
+        `<a href="https://news.ycombinator.com/item?id=${id}" target="_blank">${row.storyTitles[j] ?? 'thread'}</a>`
+      ).join('')}</div>`;
+    }
+
+    async function main() {
+      const data = await fetch(DATA_URL).then(r => r.json());
+      data.forEach(r => {
+        r.membersOnly = r.views === 0;
+        r.ratio = r.views > 0 && r[COUNT_FIELD] > 0 ? r.views / r[COUNT_FIELD] : null;
+      });
+
+      const table = new Tabulator('#table', {
+        data,
+        height: 'calc(100vh - 240px)',
+        layout: 'fitColumns',
+        virtualDom: true,
+        initialSort: [{ column: 'ratio', dir: 'asc' }],
+        columns: [
+          { title: '#', formatter: 'rownum', hozAlign: 'right', width: 50, resizable: false },
+          { title: 'Video', field: 'title', widthGrow: 3, minWidth: 200, resizable: false, formatter: titleFormatter },
+          { title: COUNT_LABEL, field: COUNT_FIELD, hozAlign: 'right', width: 70, resizable: false, sorter: 'number' },
+          { title: 'Total Score', field: 'totalScore', hozAlign: 'right', width: 100, resizable: false, sorter: 'number' },
+          { title: 'Views', field: 'views', hozAlign: 'right', width: 110, resizable: false, sorter: 'number', formatter: cell => fmtNum(cell.getValue()) },
+          { title: RATIO_LABEL, field: 'ratio', hozAlign: 'right', width: 110, resizable: false, sorter: 'number', formatter: cell => fmtNum(cell.getValue()) },
+          { title: 'HN Threads', field: 'storyTitles', widthGrow: 2, minWidth: 150, resizable: false, formatter: threadsFormatter },
+        ],
+      });
+      table.on('rowClick', (e, row) => { window.location.href = `video.html?v=${row.getData().videoId}`; });
+
+      let searchVal = '', minViews = 0, maxViews = Infinity, minCount = 1, membersFilter = 'any';
+
+      function applyFilters() {
+        const filters = [];
+        if (searchVal) filters.push([{ field: 'title', type: 'like', value: searchVal }, { field: 'channel', type: 'like', value: searchVal }]);
+        if (minViews > 0) filters.push({ field: 'views', type: '>=', value: minViews });
+        if (maxViews !== Infinity) filters.push({ field: 'views', type: '<=', value: maxViews });
+        if (minCount > 1) filters.push({ field: COUNT_FIELD, type: '>=', value: minCount });
+        if (membersFilter === 'hide') filters.push({ field: 'membersOnly', type: '!=', value: true });
+        if (membersFilter === 'only') filters.push({ field: 'membersOnly', type: '=', value: true });
+        table.setFilter(filters);
+      }
+
+      // Views range slider
+      const viewsSlider = document.getElementById('views-slider');
+      const viewsVal = document.getElementById('views-val');
+      noUiSlider.create(viewsSlider, {
+        start: [0, VIEW_STEPS.length - 1],
+        step: 1,
+        range: { min: 0, max: VIEW_STEPS.length - 1 },
+        connect: true,
+      });
+      viewsSlider.noUiSlider.on('update', (values) => {
+        const lo = Math.round(values[0]);
+        const hi = Math.round(values[1]);
+        minViews = VIEW_STEPS[lo];
+        maxViews = VIEW_STEPS[hi];
+        viewsVal.textContent = (lo === 0 && hi === VIEW_STEPS.length - 1) ? 'Any' : `${fmtStep(lo)} – ${fmtStep(hi)}`;
+        applyFilters();
+      });
+
+      // Count slider
+      const countSlider = document.getElementById('count-slider');
+      const countVal = document.getElementById('count-val');
+      noUiSlider.create(countSlider, {
+        start: 1,
+        step: 1,
+        range: { min: 1, max: MAX_COUNT },
+        connect: [true, false],
+      });
+      countSlider.noUiSlider.on('update', (values) => {
+        minCount = Math.round(values[0]);
+        countVal.textContent = minCount <= 1 ? 'Any' : minCount + '+';
+        applyFilters();
+      });
+
+      const searchEl = document.getElementById('search');
+      const acEl = document.getElementById('autocomplete');
+      let focusedIdx = -1;
+
+      function buildAc(q) {
+        if (!q) { acEl.style.display = 'none'; return; }
+        const ql = q.toLowerCase();
+        const titles = data.filter(r => r.title && r.title.toLowerCase().includes(ql)).slice(0, 6).map(r => r.title);
+        const channels = [...new Set(data.filter(r => r.channel && r.channel.toLowerCase().includes(ql)).map(r => r.channel))].slice(0, 4);
+        let html = '<div class="ac-section-header">Videos</div>';
+        html += titles.length ? titles.map(t => `<div class="ac-item" data-value="${t.replace(/"/g, '&quot;')}">${t}</div>`).join('') : '<div class="ac-empty">None</div>';
+        html += '<div class="ac-section-header">Channels</div>';
+        html += channels.length ? channels.map(c => `<div class="ac-item" data-value="${c.replace(/"/g, '&quot;')}">${c}</div>`).join('') : '<div class="ac-empty">None</div>';
+        acEl.innerHTML = html;
+        acEl.style.display = 'block';
+        focusedIdx = -1;
+      }
+
+      function selectAc(value) { searchEl.value = value; searchVal = value; acEl.style.display = 'none'; applyFilters(); }
+
+      searchEl.addEventListener('input', e => { searchVal = e.target.value; buildAc(searchVal); applyFilters(); });
+      searchEl.addEventListener('keydown', e => {
+        const items = acEl.querySelectorAll('.ac-item');
+        if (!items.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); focusedIdx = Math.min(focusedIdx + 1, items.length - 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); focusedIdx = Math.max(focusedIdx - 1, 0); }
+        else if (e.key === 'Enter' && focusedIdx >= 0) { e.preventDefault(); selectAc(items[focusedIdx].dataset.value); return; }
+        else if (e.key === 'Escape') { acEl.style.display = 'none'; return; }
+        items.forEach((el, i) => el.classList.toggle('focused', i === focusedIdx));
+      });
+      acEl.addEventListener('mousedown', e => { const item = e.target.closest('.ac-item'); if (item) selectAc(item.dataset.value); });
+      document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) acEl.style.display = 'none'; });
+
+      document.getElementById('members-buckets').addEventListener('click', e => {
+        const btn = e.target.closest('.bucket'); if (!btn) return;
+        document.querySelectorAll('#members-buckets .bucket').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); membersFilter = btn.dataset.members; applyFilters();
+      });
+    }
+    main();
+  </script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HN YouTube – Video</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link href="https://unpkg.com/tabulator-tables@6.3.0/dist/css/tabulator.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f6f6ef; color: #333; padding: 2rem 1rem; max-width: 960px; }
+    nav { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; }
+    .nav-link { padding: 0.35rem 0.9rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px; background: white; color: #555; text-decoration: none; }
+    .nav-link:hover { border-color: #ff6600; color: #ff6600; }
+    h1 { font-size: 1.3rem; font-weight: 700; color: #222; margin-bottom: 0.25rem; }
+    .channel { font-size: 0.85rem; color: #828282; margin-bottom: 0.5rem; }
+    .video-link { font-size: 0.85rem; color: #ff6600; text-decoration: none; }
+    .video-link:hover { text-decoration: underline; }
+    .stats { display: flex; gap: 1.5rem; margin: 1.25rem 0; flex-wrap: wrap; }
+    .stat { background: white; border: 1px solid #e8e8e8; border-radius: 6px; padding: 0.75rem 1.25rem; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; color: #ff6600; }
+    .stat-label { font-size: 0.75rem; color: #828282; margin-top: 2px; }
+    h2 { font-size: 1rem; font-weight: 600; color: #333; margin: 1.75rem 0 0.75rem; }
+    .chart-wrap { background: white; border: 1px solid #e8e8e8; border-radius: 6px; padding: 1rem; max-width: 600px; }
+.table-search { padding: 0.4rem 0.75rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px; width: 260px; margin-bottom: 0.5rem; }
+    .tabulator { border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.875rem; }
+    .tabulator .tabulator-header { background: #f6f6ef; border-bottom: 1px solid #e0e0e0; }
+    .tabulator .tabulator-col-title { font-weight: 600; }
+    .tabulator-row { border-bottom: 1px solid #f0f0f0; }
+    .tabulator-row:hover { background: #fffaf5 !important; }
+    .tabulator a { color: #828282; text-decoration: none; }
+    .tabulator a:hover { color: #ff6600; text-decoration: underline; }
+    #not-found { color: #828282; font-size: 0.9rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-link" href="index.html">Comments</a>
+    <a class="nav-link" href="posts.html">Direct Posts</a>
+  </nav>
+  <div id="content"></div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const videoId = params.get('v');
+
+    function fmtViews(v) {
+      if (v == null) return '—';
+      if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+      return String(v);
+    }
+
+    function userLink(user) {
+      return `<a href="https://news.ycombinator.com/user?id=${user}" target="_blank">${user}</a>`;
+    }
+
+    function hnLink(id, label) {
+      return `<a href="https://news.ycombinator.com/item?id=${id}" target="_blank">${label || 'thread'}</a>`;
+    }
+
+    const allTables = [];
+
+    function makeTable(elId, data, columns, searchFields, rowUrl) {
+      const wrap = document.getElementById(elId);
+      const searchEl = wrap.previousElementSibling;
+
+      const table = new Tabulator(`#${elId}`, {
+        data,
+        layout: 'fitColumns',
+        virtualDom: true,
+        maxHeight: 400,
+        columns,
+        tableBuilt() { const t = this; requestAnimationFrame(() => t.redraw()); },
+      });
+      if (rowUrl) table.on('rowClick', (e, row) => { window.open(rowUrl(row.getData()), '_blank'); });
+
+      allTables.push(table);
+
+      if (searchEl && searchFields) {
+        searchEl.addEventListener('input', e => {
+          const q = e.target.value;
+          if (!q) { table.clearFilter(); return; }
+          table.setFilter(searchFields.map(f => ({ field: f, type: 'like', value: q })));
+        });
+      }
+
+      return table;
+    }
+
+    window.addEventListener('resize', () => { allTables.forEach(t => t.redraw()); });
+
+    async function main() {
+      if (!videoId) { document.getElementById('content').innerHTML = '<p id="not-found">No video ID specified.</p>'; return; }
+
+      const [data, commentsData, postsData] = await Promise.all([
+        fetch('./data.json').then(r => r.json()),
+        fetch('./results.json').then(r => r.json()),
+        fetch('./posts.json').then(r => r.json()),
+      ]);
+
+      const videoData = data[videoId];
+      if (!videoData) { document.getElementById('content').innerHTML = '<p id="not-found">Video not found in dataset.</p>'; return; }
+
+      const meta = commentsData.find(v => v.videoId === videoId) ?? postsData.find(v => v.videoId === videoId) ?? {};
+      const { comments = [], posts = [] } = videoData;
+
+      // Trend chart data
+      const commentsByMonth = {}, postsByMonth = {};
+      for (const e of comments) if (e.date) commentsByMonth[e.date] = (commentsByMonth[e.date] ?? 0) + 1;
+      for (const e of posts) if (e.date) postsByMonth[e.date] = (postsByMonth[e.date] ?? 0) + 1;
+      const allMonths = [...new Set([...Object.keys(commentsByMonth), ...Object.keys(postsByMonth)])].sort();
+
+      // Top users
+      const commenterCounts = {};
+      for (const e of comments) commenterCounts[e.author] = (commenterCounts[e.author] ?? 0) + 1;
+      const topCommenters = Object.entries(commenterCounts).sort((a, b) => b[1] - a[1]).slice(0, 20)
+        .map(([user, count], i) => ({ rank: i + 1, user, count }));
+
+      const posterCounts = {};
+      for (const e of posts) posterCounts[e.author] = (posterCounts[e.author] ?? 0) + 1;
+      const topPosters = Object.entries(posterCounts).sort((a, b) => b[1] - a[1]).slice(0, 20)
+        .map(([user, count], i) => ({ rank: i + 1, user, count }));
+
+      const commentRows = [...comments].sort((a, b) => a.date.localeCompare(b.date));
+      const postRows = [...posts].sort((a, b) => a.date.localeCompare(b.date));
+
+      document.title = `HN YouTube – ${meta.title ?? videoId}`;
+
+      document.getElementById('content').innerHTML = `
+        <h1>${meta.title ?? videoId}</h1>
+        <div class="channel">${meta.channel ?? ''}</div>
+        <a class="video-link" href="https://www.youtube.com/watch?v=${videoId}" target="_blank">Watch on YouTube →</a>
+
+        <div class="stats">
+          <div class="stat"><div class="stat-value">${fmtViews(meta.views)}</div><div class="stat-label">Views</div></div>
+          <div class="stat"><div class="stat-value">${comments.length}</div><div class="stat-label">HN Comment Refs</div></div>
+          <div class="stat"><div class="stat-value">${posts.length}</div><div class="stat-label">HN Direct Posts</div></div>
+          ${meta.totalScore != null ? `<div class="stat"><div class="stat-value">${meta.totalScore}</div><div class="stat-label">Total Post Score</div></div>` : ''}
+        </div>
+
+        <h2>Activity Over Time</h2>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+        <h2>Top Commenters</h2>
+        <input class="table-search" type="text" placeholder="Search users...">
+        <div id="commenters-table"></div>
+
+        <h2>Comments</h2>
+        <input class="table-search" type="text" placeholder="Search users, threads...">
+        <div id="comments-table"></div>
+
+        <h2>Top Posters</h2>
+        <input class="table-search" type="text" placeholder="Search users...">
+        <div id="posters-table"></div>
+
+        <h2>Posts</h2>
+        <input class="table-search" type="text" placeholder="Search users, threads...">
+        <div id="posts-table"></div>
+      `;
+
+      document.getElementById('chart').style.maxHeight = '200px';
+      new Chart(document.getElementById('chart'), {
+        type: 'bar',
+        data: {
+          labels: allMonths,
+          datasets: [
+            { label: 'Comment Refs', data: allMonths.map(m => commentsByMonth[m] ?? 0), backgroundColor: 'rgba(255, 102, 0, 0.7)' },
+            { label: 'Direct Posts', data: allMonths.map(m => postsByMonth[m] ?? 0), backgroundColor: 'rgba(130, 130, 130, 0.5)' },
+          ],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: {
+            x: { stacked: true, ticks: { maxTicksLimit: 24 } },
+            y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+          },
+        },
+      });
+
+      makeTable('commenters-table', topCommenters, [
+        { title: '#', field: 'rank', hozAlign: 'right', width: 50, resizable: false },
+        { title: 'User', field: 'user', widthGrow: 1, resizable: false, formatter: cell => userLink(cell.getValue()) },
+        { title: 'Refs', field: 'count', hozAlign: 'right', width: 80, resizable: false, sorter: 'number' },
+      ], ['user'], r => `https://news.ycombinator.com/user?id=${r.user}`);
+
+      makeTable('comments-table', commentRows, [
+        { title: 'Date', field: 'date', width: 90, resizable: false, sorter: 'string' },
+        { title: 'User', field: 'author', width: 140, resizable: false, formatter: cell => userLink(cell.getValue()) },
+        { title: 'Thread', field: 'storyTitle', widthGrow: 1, resizable: false, formatter: cell => {
+          const row = cell.getRow().getData();
+          return hnLink(row.commentId, cell.getValue());
+        }},
+      ], ['author', 'storyTitle'], r => `https://news.ycombinator.com/item?id=${r.commentId}`);
+
+      makeTable('posters-table', topPosters, [
+        { title: '#', field: 'rank', hozAlign: 'right', width: 50, resizable: false },
+        { title: 'User', field: 'user', widthGrow: 1, resizable: false, formatter: cell => userLink(cell.getValue()) },
+        { title: 'Posts', field: 'count', hozAlign: 'right', width: 80, resizable: false, sorter: 'number' },
+      ], ['user'], r => `https://news.ycombinator.com/user?id=${r.user}`);
+
+      makeTable('posts-table', postRows, [
+        { title: 'Date', field: 'date', width: 90, resizable: false, sorter: 'string' },
+        { title: 'User', field: 'author', width: 140, resizable: false, formatter: cell => userLink(cell.getValue()) },
+        { title: 'Thread', field: 'storyTitle', widthGrow: 1, resizable: false, formatter: cell => {
+          const row = cell.getRow().getData();
+          return hnLink(row.storyId, cell.getValue());
+        }},
+        { title: 'Score', field: 'score', hozAlign: 'right', width: 90, resizable: false, sorter: 'number' },
+        { title: 'Comments', field: 'numComments', hozAlign: 'right', width: 100, resizable: false, sorter: 'number' },
+      ], ['author', 'storyTitle'], r => `https://news.ycombinator.com/item?id=${r.storyId}`);
+    }
+
+    main();
+  </script>
+</body>
+</html>
