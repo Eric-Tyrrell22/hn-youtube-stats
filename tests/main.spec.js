@@ -40,6 +40,19 @@ test.describe('Comments page (index.html)', () => {
     const label = await page.textContent('#views-val');
     expect(label).not.toBe('Any');
   });
+
+  test('no column headers are truncated', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(`${BASE}/index.html`);
+    await page.waitForSelector('.tabulator-row');
+    const truncated = await page.evaluate(() =>
+      [...document.querySelectorAll('.tabulator-col-title')].filter(el => {
+        // headerWordWrap:true means overflow should not be ellipsis
+        return getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth;
+      }).map(el => el.textContent.trim())
+    );
+    expect(truncated).toEqual([]);
+  });
 });
 
 test.describe('Posts page (posts.html)', () => {
@@ -65,6 +78,19 @@ test.describe('Posts page (posts.html)', () => {
     await page.waitForTimeout(300);
     const rows = await page.locator('.tabulator-row').count();
     expect(rows).toBe(0);
+  });
+
+  test('no column headers are truncated', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(`${BASE}/posts.html`);
+    await page.waitForSelector('.tabulator-row');
+    const truncated = await page.evaluate(() =>
+      [...document.querySelectorAll('.tabulator-col-title')].filter(el => {
+        // headerWordWrap:true means overflow should not be ellipsis
+        return getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth;
+      }).map(el => el.textContent.trim())
+    );
+    expect(truncated).toEqual([]);
   });
 });
 

@@ -90,10 +90,19 @@
 
     function fmtNum(v) {
       if (v == null) return '—';
-      if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
-      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
-      if (v >= 1e3) return (v / 1e3).toFixed(0) + 'K';
+      if (v >= 1e9) return Math.floor(v / 1e9) + 'B';
+      if (v >= 1e6) return Math.floor(v / 1e6) + 'M';
+      if (v >= 1e3) return Math.floor(v / 1e3) + 'K';
       return String(v);
+    }
+
+    function fmtRatio(v) {
+      if (v == null) return '—';
+      if (v >= 1e9) return Math.floor(v / 1e9) + 'B';
+      if (v >= 1e6) return Math.floor(v / 1e6) + 'M';
+      if (v >= 1e3) return Math.floor(v / 1e3) + 'K';
+      if (v >= 10) return Math.floor(v).toString();
+      return v.toFixed(1);
     }
 
     function fmtStep(i) {
@@ -126,13 +135,13 @@
         height: 'calc(100vh - 240px)',
         layout: 'fitColumns',
         virtualDom: true,
+        columnDefaults: { headerWordWrap: true },
         initialSort: [{ column: 'ratio', dir: 'asc' }],
         columns: [
           { title: '#', formatter: 'rownum', hozAlign: 'right', width: 50, resizable: false },
           { title: 'Video', field: 'title', widthGrow: 3, minWidth: 200, resizable: false, formatter: titleFormatter },
-          { title: COUNT_LABEL, field: COUNT_FIELD, hozAlign: 'right', width: 100, resizable: false, sorter: 'number' },
-          { title: 'Views', field: 'views', hozAlign: 'right', width: 110, resizable: false, sorter: 'number', formatter: cell => fmtNum(cell.getValue()) },
-          { title: RATIO_LABEL, field: 'ratio', hozAlign: 'right', width: 130, resizable: false, sorter: 'number', formatter: cell => fmtNum(cell.getValue()) },
+          { title: COUNT_LABEL, field: COUNT_FIELD, hozAlign: 'right', width: 110, resizable: false, sorter: 'number' },
+          { title: RATIO_LABEL, field: 'ratio', hozAlign: 'right', width: 145, resizable: false, sorter: 'number', formatter: cell => fmtRatio(cell.getValue()) },
           { title: 'HN Threads', field: 'storyTitles', widthGrow: 2, minWidth: 150, resizable: false, formatter: threadsFormatter },
         ],
       });
