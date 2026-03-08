@@ -114,6 +114,7 @@
     }
 
     async function main() {
+      fetch('./data.json'); // warm cache for video.html
       const data = await fetch(DATA_URL).then(r => r.json());
       data.forEach(r => {
         r.membersOnly = r.views === 0;
