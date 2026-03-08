@@ -136,7 +136,7 @@
         layout: 'fitColumns',
         virtualDom: true,
         columnDefaults: { headerWordWrap: true },
-        initialSort: [{ column: 'ratio', dir: 'asc' }],
+        initialSort: [{ column: COUNT_FIELD, dir: 'desc' }],
         columns: [
           { title: '#', formatter: 'rownum', hozAlign: 'right', width: 50, resizable: false },
           { title: 'Video', field: 'title', widthGrow: 3, minWidth: 200, resizable: false, formatter: titleFormatter },
